@@ -7,72 +7,66 @@ using UnityEngine;
 public class ProjectController : MonoBehaviour
 {
     [Header("Settings")]
-    public TextAsset GameConfigJson;
+    [SerializeField] private TextAsset _gameConfigJson;
 
     [Header("View")]
-    public CharacterViewer CharacterViewer;
-    public DoorsViewer DoorsViewer;
-    public ButtonsViewer ButtonsViewer;
+    [SerializeField] private CharacterViewer _characterViewer;
+    [SerializeField] private DoorsViewer _doorsViewer;
+    [SerializeField] private ButtonsViewer _buttonsViewer;
 
     private GameWorld _game;
-    private InOutData _inOutData;
+    private Vector3 _characterEndPoint;
 
     private void Start()
     {
-        GameConfig config = JsonUtility.FromJson<GameConfig>(GameConfigJson.text);
-        _inOutData = new InOutData();
-        _inOutData.PositionChanged = false;
-        _inOutData.DoorsUpdate = new List<int>();
-        _inOutData.ButtonsUpdate = new List<int>();
-        _game = new GameWorld(config, _inOutData);
+        GameConfig config = JsonUtility.FromJson<GameConfig>(_gameConfigJson.text);
+        _game = new GameWorld(config);
 
         var playerData = _game.GetPlayerData();
-        CharacterViewer.UpdateView(playerData);
-
-        UpdateDoors();
-        UpdateButtons();
+        _characterViewer.UpdateView(playerData,Vector3.zero);
+        var changes = _game.GetChanges();
+        UpdateDoors(changes);
+        UpdateButtons(changes);
 
     }
 
     private void Update()
     {
-        _inOutData.MovableUpdate = false;
-        _inOutData.DoorsUpdate.Clear();
-        _inOutData.ButtonsUpdate.Clear();
-        _inOutData.DeltaTime = Time.deltaTime;
         
-        _game.Run();
+        _game.Run(Time.deltaTime);
 
-        if (_inOutData.MovableUpdate)
+        var changes = _game.GetChanges();
+        if (changes.CharacterUpdate)
         {
             var playerData = _game.GetPlayerData();
-            CharacterViewer.UpdateView(playerData);
+            _characterViewer.UpdateView(playerData, _characterEndPoint);
         }
-
-        UpdateDoors();
-        UpdateButtons();
+        UpdateDoors(changes);
+        UpdateButtons(changes);
     }
 
-    private void UpdateButtons()
+    private void UpdateButtons(SharedData changes)
     {
-        if(_inOutData.ButtonsUpdate.Count>0)
+        if(changes.ButtonsUpdate.Count>0)
         {
-            foreach(var button in _inOutData.ButtonsUpdate)
+            foreach(var button in changes.ButtonsUpdate)
             {
                 var buttonData = _game.GetButtonData(button);
-                ButtonsViewer.UpdateView(button, buttonData);
+                var buttonTrData = _game.GetTransformData(button);
+                _buttonsViewer.UpdateView(button, buttonData, buttonTrData);
             }
         }
     }
 
-    private void UpdateDoors()
+    private void UpdateDoors(SharedData changes)
     {
-        if (_inOutData.DoorsUpdate.Count > 0)
+        if (changes.DoorsUpdate.Count > 0)
         {
-            foreach (var door in _inOutData.DoorsUpdate)
+            foreach (var door in changes.DoorsUpdate)
             {
                 var doorData = _game.GetDoorData(door);
-                DoorsViewer.UpdateView(door, doorData);
+                var doorTrData = _game.GetTransformData(door);
+                _doorsViewer.UpdateView(door, doorData, doorTrData);
             }
         }
     }
@@ -85,7 +79,8 @@ public class ProjectController : MonoBehaviour
 
     public void SetMovePoint(Vector3 point)
     {
-        _inOutData.CurrentPosition = new Vector2(point.x, point.z);
-        _inOutData.PositionChanged = true;
+        point.y = 0;
+        _characterEndPoint = point;
+        _game.SetPlayerEndPoint(point);
     }
 }

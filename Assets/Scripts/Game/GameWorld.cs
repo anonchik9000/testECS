@@ -3,6 +3,7 @@ using Game.Components;
 using Game.Systems;
 using Leopotam.EcsLite;
 using System.Collections.Generic;
+using UnityEngine;
 
 namespace Game
 {
@@ -10,24 +11,33 @@ namespace Game
     {
         private EcsSystems _systems;
         private EcsWorld _world;
-        private InOutData _inOutData;
+        private SharedData _sharedData;
 
         private int _playerEntity;
 
+        private EcsPool<TranformCmp> _transformPool;
         private EcsPool<MovableCmp> _movablesPool;
         private EcsPool<ButtonCmp> _buttonsPool;
         private EcsPool<DoorCmp> _doorsPool;
-        public GameWorld(GameConfig config, InOutData inOutData)
+        public GameWorld(GameConfig config)
         {
-            _inOutData = inOutData;
+
             _world = new EcsWorld();
-            _systems = new EcsSystems(_world);
-            _systems.Add(new MovablesSys(inOutData))
-                    .Add(new ButtonsSys(inOutData));
+            _sharedData = new SharedData();
+            _sharedData.ButtonsUpdate = new List<int>();
+            _sharedData.DoorsUpdate = new List<int>();
+            _sharedData.CharacterUpdate = true;
+            _systems = new EcsSystems(_world, _sharedData);
+            _systems.Add(new MovablesSys())
+                    .Add(new ButtonsSys());
+
+            _transformPool = _world.GetPool<TranformCmp>();
+            _movablesPool = _world.GetPool<MovableCmp>();
 
             _playerEntity = _world.NewEntity();
-            _movablesPool = _world.GetPool<MovableCmp>();
-            ref MovableCmp playerCmp = ref _movablesPool.Add(_playerEntity);
+            var characters = _world.GetPool<CharacterCmp>();
+            characters.Add(_playerEntity);
+            ref TranformCmp playerCmp = ref _transformPool.Add(_playerEntity);
             playerCmp.Position = config.PlayerPosition;
 
             _buttonsPool = _world.GetPool<ButtonCmp>();
@@ -38,11 +48,13 @@ namespace Game
             foreach (var button in config.ButtonConfigs)
             {
                 int buttonEntity = _world.NewEntity();
-                inOutData.ButtonsUpdate.Add(buttonEntity);
+                _sharedData.ButtonsUpdate.Add(buttonEntity);
 
                 ref ButtonCmp buttonCmp = ref _buttonsPool.Add(buttonEntity);
-                buttonCmp.Position = button.Position;
                 buttonCmp.Radius = button.Radius;
+                ref TranformCmp buttonTrCmp = ref _transformPool.Add(buttonEntity);
+                buttonTrCmp.Position = new Vector3(button.Position.x,0, button.Position.y);
+
                 if (button.DoorIndex >= 0 && button.DoorIndex < config.DoorConfigs.Length)
                 {
                     doorCreatedIndexes.Add(button.DoorIndex,true);
@@ -65,9 +77,10 @@ namespace Game
         private int CreateDoor(GameConfig config,int doorIndex)
         {
             int doorEntity = _world.NewEntity();
-            _inOutData.DoorsUpdate.Add(doorEntity);
+            _sharedData.DoorsUpdate.Add(doorEntity);
+            _doorsPool.Add(doorEntity);
 
-            ref DoorCmp doorCmp = ref _doorsPool.Add(doorEntity);
+            ref TranformCmp doorCmp = ref _transformPool.Add(doorEntity);
             var door = config.DoorConfigs[doorIndex];
             doorCmp.Position = door.Position;
             doorCmp.Size = door.Size;
@@ -76,8 +89,12 @@ namespace Game
         }
 
 
-        public void Run()
+        public void Run(float deltaTime)
         {
+            _sharedData.ButtonsUpdate.Clear();
+            _sharedData.CharacterUpdate = false;
+            _sharedData.DoorsUpdate.Clear();
+            _sharedData.DeltaTime = deltaTime;
             _systems?.Run();
         }
 
@@ -91,9 +108,19 @@ namespace Game
             }
         }
 
-        public MovableCmp GetPlayerData()
+        public SharedData GetChanges()
         {
-            return _movablesPool.Get(_playerEntity);
+            return _sharedData;
+        }
+
+        public TranformCmp GetPlayerData()
+        {
+            return _transformPool.Get(_playerEntity);
+        }
+
+        public TranformCmp GetTransformData(int entity)
+        {
+            return _transformPool.Get(entity);
         }
 
         public DoorCmp GetDoorData(int entity)
@@ -104,6 +131,20 @@ namespace Game
         public ButtonCmp GetButtonData(int entity)
         {
             return _buttonsPool.Get(entity);
+        }
+
+        public void SetPlayerEndPoint(Vector3 endPoint)
+        {
+            if (_movablesPool.Has(_playerEntity))
+            {
+                ref MovableCmp movable = ref _movablesPool.Get(_playerEntity);
+                movable.EndPoint = endPoint;
+            }
+            else
+            {
+                ref MovableCmp movable = ref _movablesPool.Add(_playerEntity);
+                movable.EndPoint = endPoint;
+            }
         }
     }
 }

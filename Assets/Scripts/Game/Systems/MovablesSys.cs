@@ -6,56 +6,49 @@ namespace Game.Systems
     sealed class MovablesSys : IEcsRunSystem,IEcsInitSystem {
 
         private EcsFilter _entities;
-        private EcsPool<MovableCmp> _pool;
-        private InOutData _inOutData;
-        public MovablesSys(InOutData inOutData)
-        {
-            _inOutData = inOutData;
-        }
+        private EcsPool<MovableCmp> _moveblesPool;
+        private EcsPool<TranformCmp> _transformsPool;
+        private SharedData _shared;
+
         public void Init(EcsSystems systems)
         {
+            _shared = systems.GetShared<SharedData>();
             EcsWorld world = systems.GetWorld();
-            _entities = world.Filter< MovableCmp>().End();
-            _pool = world.GetPool<MovableCmp>();
+            _entities = world.Filter<MovableCmp>().End();
+            _moveblesPool = world.GetPool<MovableCmp>();
+            _transformsPool = world.GetPool<TranformCmp>();
         }
 
-        /// <summary>
-        /// Игрок один, но системе должно быть все равно на количество сущностей которые она будет обрабатывать.
-        /// Один вход в цикл не несет существенных затрат по производительности, за то система может быть легко отмасштабирована на несколько игроков или других движущихся к точке сущностей.
-        /// Считаю такой подход приемлемым, с учетом того что это Movable система двигающая объект к точке, а не CharacterController
-        /// </summary>
-        /// <param name="systems"></param>
-        public void Run (EcsSystems systems) {
-            if (_inOutData.PositionChanged)
+        public void Run (EcsSystems systems) 
+        {
+            foreach (var entity in _entities)
             {
-                foreach (var entity in _entities)
-                {
-                    ref MovableCmp move = ref _pool.Get(entity);
-                    var direction = _inOutData.CurrentPosition - move.Position;
-                    float distance = direction.sqrMagnitude;
+                ref MovableCmp move = ref _moveblesPool.Get(entity);
+                ref TranformCmp transform = ref _transformsPool.Get(entity);
+                var direction = move.EndPoint - transform.Position;
+                float distance = direction.sqrMagnitude;
 
-                    if (distance > move.SqrCmpDelta)
+                if (distance > move.SqrCmpDelta)
+                {
+                    float dtSpeed = move.Speed * _shared.DeltaTime;
+                    if (distance < dtSpeed)
                     {
-                        float dtSpeed = move.Speed * _inOutData.DeltaTime;
-                        if (distance < dtSpeed)
-                        {
-                            move.Position = _inOutData.CurrentPosition;
-                            _inOutData.PositionChanged = false;
-                            
-                        }
-                        else
-                        {
-                            direction.Normalize();
-                            move.Position += direction * dtSpeed;
-                        }
-                    }else
+                        transform.Position = move.EndPoint;
+                        _moveblesPool.Del(entity);
+
+                    }
+                    else
                     {
-                        _inOutData.PositionChanged = false;
+                        direction.Normalize();
+                        transform.Position += direction * dtSpeed;
                     }
                 }
-
-                _inOutData.MovableUpdate = true;
-            }
+                else
+                {
+                    _moveblesPool.Del(entity);
+                }
+                _shared.CharacterUpdate = true;
+            }   
         }
     }
 }

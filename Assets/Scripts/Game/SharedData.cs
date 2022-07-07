@@ -3,14 +3,12 @@ using UnityEngine;
 
 namespace Game
 {
-    public class InOutData
+    public class SharedData
     {
         //In
-        public Vector2 CurrentPosition;
         public float DeltaTime;
-        public bool PositionChanged;
         //Out
-        public bool MovableUpdate;
+        public bool CharacterUpdate;
         public List<int> DoorsUpdate;
         public List<int> ButtonsUpdate;
     }

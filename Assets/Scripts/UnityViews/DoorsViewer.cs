@@ -13,7 +13,7 @@ public class DoorsViewer : MonoBehaviour
     {
         _doorCache = new Dictionary<int, Transform>();
     }
-    internal void UpdateView(int doorEntity, DoorCmp doorData)
+    internal void UpdateView(int doorEntity, DoorCmp doorData, TranformCmp transformData)
     {
         if(!_doorCache.ContainsKey(doorEntity))
         {
@@ -22,11 +22,11 @@ public class DoorsViewer : MonoBehaviour
             _doorCache[doorEntity] = clone.transform;
         }
         var door = _doorCache[doorEntity];
-        door.localScale = doorData.Size;
-        var position = doorData.Position;
-        position.y -= (1 - doorData.OpeningProgress) * doorData.Size.y;
+        door.localScale = transformData.Size;
+        var position = transformData.Position;
+        position.y -= (1 - doorData.OpeningProgress) * transformData.Size.y;
         door.position = position;
-        door.localEulerAngles = doorData.EulerRotation;
+        door.localEulerAngles = transformData.EulerRotation;
 
 
     }

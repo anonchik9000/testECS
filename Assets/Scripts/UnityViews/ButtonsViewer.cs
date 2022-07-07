@@ -16,13 +16,13 @@ public class ButtonsViewer : MonoBehaviour
         _doorCache = new Dictionary<int, MeshRenderer>();
     }
 
-    internal void UpdateView(int buttonEntity, ButtonCmp buttonData)
+    internal void UpdateView(int buttonEntity, ButtonCmp buttonData, TranformCmp transformData)
     {
         if (!_doorCache.ContainsKey(buttonEntity))
         {
             var clone = GameObject.Instantiate(Prefab);
             clone.transform.parent = transform;
-            clone.transform.position = new Vector3(buttonData.Position.x, 0, buttonData.Position.y);
+            clone.transform.position = transformData.Position;
             clone.transform.localScale = new Vector3(buttonData.Radius, clone.transform.localScale.y, buttonData.Radius);
             _doorCache[buttonEntity] = clone.GetComponent<MeshRenderer>();
         }

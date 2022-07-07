@@ -7,31 +7,29 @@ namespace Game.Systems
     sealed class ButtonsSys : IEcsRunSystem,IEcsInitSystem {
 
         private EcsFilter _movableEntities;
-        private EcsPool<MovableCmp> _movablesPool;
-
         private EcsFilter _buttonEntities;
-        private EcsPool<ButtonCmp> _buttonsPool;
 
+        private EcsPool<ButtonCmp> _buttonsPool;
         private EcsPool<DoorCmp> _doorsPool;
+        private EcsPool<TranformCmp> _transformsPool;
 
         private List<int> _openingDoors;
 
-        private InOutData _inOutData;
-        public ButtonsSys(InOutData inOutData)
-        {
-            _inOutData = inOutData;
-        }
+        private SharedData _shared;
+
 
         public void Init(EcsSystems systems)
         {
+            _shared = systems.GetShared<SharedData>();
             EcsWorld world = systems.GetWorld();
-            _movableEntities = world.Filter<MovableCmp>().End();
-            _movablesPool = world.GetPool<MovableCmp>();
+            _movableEntities = world.Filter<CharacterCmp>().End();
 
             _buttonEntities = world.Filter<ButtonCmp>().End();
             _buttonsPool = world.GetPool<ButtonCmp>();
 
             _doorsPool = world.GetPool<DoorCmp>();
+
+            _transformsPool = world.GetPool<TranformCmp>();
 
             _openingDoors = new List<int>(_doorsPool.GetRawDenseItemsCount());
         }
@@ -46,13 +44,13 @@ namespace Game.Systems
             foreach (var buttonEntity in _buttonEntities)
             {
                 ref ButtonCmp button = ref _buttonsPool.Get(buttonEntity);
+                ref TranformCmp btnTransform = ref _transformsPool.Get(buttonEntity);
                 bool oldPressed = button.IsPressed;
                 button.IsPressed = false;
                 foreach (var movableEntity in _movableEntities)
                 {
-                    ref MovableCmp movable = ref _movablesPool.Get(movableEntity);
-
-                    if (button.Contains(movable.Position))
+                    ref TranformCmp transform = ref _transformsPool.Get(movableEntity);
+                    if (button.Contains(transform.Position, btnTransform.Position))
                     {
                         button.IsPressed = true;
                         _openingDoors.Add(button.DoorEntity);
@@ -60,7 +58,7 @@ namespace Game.Systems
                 }
                 if (oldPressed != button.IsPressed)
                 {
-                    _inOutData.ButtonsUpdate.Add(buttonEntity);
+                    _shared.ButtonsUpdate.Add(buttonEntity);
                 }
             }
             foreach (var doorEntity in _openingDoors)
@@ -70,12 +68,12 @@ namespace Game.Systems
                     ref DoorCmp door = ref _doorsPool.Get(doorEntity);
                     if (door.OpeningProgress > 0)
                     {
-                        door.OpeningProgress -= door.OpeningSpeed * _inOutData.DeltaTime;
+                        door.OpeningProgress -= door.OpeningSpeed * _shared.DeltaTime;
                         if (door.OpeningProgress < 0)
                         {
                             door.OpeningProgress = 0;
                         }
-                        _inOutData.DoorsUpdate.Add(doorEntity);
+                        _shared.DoorsUpdate.Add(doorEntity);
                     }
                 }
             }

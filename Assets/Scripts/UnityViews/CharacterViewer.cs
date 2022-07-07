@@ -6,8 +6,15 @@ using UnityEngine;
 
 public class CharacterViewer : MonoBehaviour
 {
-    internal void UpdateView(MovableCmp playerData)
+    public Animator Animator;
+    public Transform Graphics;
+    internal void UpdateView(TranformCmp playerData,Vector3 endPoint)
     {
-        transform.position = new Vector3(playerData.Position.x, transform.position.y, playerData.Position.y);
+        transform.position = playerData.Position;
+        var direction = (endPoint - transform.position);
+        Animator.SetBool("Move", direction.magnitude > 0.1);
+        var forward = direction.normalized;
+        if(forward.sqrMagnitude>float.Epsilon)
+            Graphics.forward = forward;
     }
 }
